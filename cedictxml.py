@@ -4,25 +4,40 @@
 import io
 import re
 import time
+import argparse
+import zipfile
+import urllib2
+import zipfile
+import tempfile
+from tqdm import tqdm
 
 from lxml import etree as ET
 from pinyin import pinyinize
 
 
-version = "1.0"
+version = "1.1"
 dictionaryname = "CC-CEDICT"
 currenttime = time.strftime("%d-%m-%Y %H:%M:%S", time.localtime())
 dtd_url = "https://raw.github.com/soshial/xdxf_makedict/master/format_standard/xdxf_strict.dtd"
 doctypestring = "<!DOCTYPE xdxf SYSTEM \'%s\'>" % dtd_url
-declaration = ("CedictXML: CC-CEDICT to XDXF Converter\nVersion %s        "
-              "Released into the Public Domain\n" % version)
+declaration = ("CedictXML: CC-CEDICT to XDXF Converter\nVersion %s\n" % version)
 header = ""
 src_url = "http://www.mdbg.net/chindict/chindict.php?page=cc-cedict"
+file_url = "https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.zip"
 publishing_date = ""
 dictionary_version = ""
 cedict_dict = dict()    # Final dictionary object
 
 
+def download_cedict():
+    tempzip = tempfile.TemporaryFile()
+    url = urllib2.urlopen(file_url)
+    tempzip.write(url.read())
+    zipped_cedict = zipfile.ZipFile(tempzip, 'r')
+    temptxt = tempfile.TemporaryFile()
+    temptxt = zipped_cedict.open("cedict_ts.u8", "rU").read()
+    zipped_cedict.close()
+    return temptxt.decode('utf8')
 def pyjoin(pinyinsyllables):
     """Convert CEDICT-style pinyin notation to correct pinyin.
 
@@ -81,9 +96,9 @@ def bracketpy(pystring):
     else:
         return None
 def dictconvert(dictionaryfile):
-    """Convert a CC-CEDICT file into a python dictionary.
+    """Convert a CC-CEDICT file string into a python dictionary.
 
-    The CC-CEDICT dictionary file is converted into a python dictionary,
+    The CC-CEDICT dictionary string is converted into a python dictionary,
     itself consisting of dictionaries. The main dictionary, cedict_dict,
     includes a dictionary with the key "header" and the header of the
     CC-CEDICT file as key, plus as many dictionaries as entries in the
@@ -115,7 +130,7 @@ def dictconvert(dictionaryfile):
     """
     linenum = int(0)
     header = str()
-    for line in dictionaryfile:
+    for line in tqdm(dictionaryfile.split("\n")):
         linenum = linenum + 1
         # So that if something goes wrong we know which line is causing the
         # problem:
@@ -290,7 +305,7 @@ def createxdxf(dictionary):
                                 (meta_info,"publishing_date").text) = (publishing_date_xdxf)
     meta_info_dict_src_url = ET.SubElement(meta_info,
                                           "dict_src_url").text = src_url
-    for key,value in dictionary.iteritems():
+    for key,value in tqdm(dictionary.items()):
         lexicon_ar = ET.SubElement(lexicon, "ar")
         lexicon_ar_k = ET.SubElement(lexicon_ar, "k").text = value["entry_jian"]
         lexicon_ar_k_trad = ET.SubElement(lexicon_ar,
@@ -364,17 +379,45 @@ def multi_replace(inputstring, replacements):
         inputstring = inputstring.replace(replacement[0], replacement[1])
     return inputstring
 
+# Set and parse arguments.
+argparser = argparse.ArgumentParser()
+argparser.add_argument("-i", "--input-file", help="Original CC-CEDICT file to "
+                                                  "be converted.")
+argparser.add_argument("-o", "--output-file", help="Resulting XDXF-format "
+                                                   "file.")
+argparser.add_argument("-d", "--download", help="Download the most recent "
+                                                "release of CC-CEDICT and use "
+                                                "it as input file.",
+                                                action="store_true")
+args = argparser.parse_args()
 
 print declaration
-try:
-    cedictfile = io.open("cedict_ts.u8", "r", encoding="utf8")
-except:
-    print ("\nNo CC-CEDICT (\"cedict_ts.u8\") file was found on the "
-          "current folder.")
-    quit()
+
+if args.input_file and args.download:
+    print ("It's not possible to select an input file and to download the most "
+          "recent version.")
+    exit()
+if args.input_file:
+    input_file = args.input_file
+elif args.download:
+    print "\nDownloading the most recent release of CC-CEDICT..."
+    input_file = download_cedict()
+else:
+    input_file = "cedict_ts.u8"
+if args.input_file or not (args.download or args.input_file):
+    try:
+        cedictfile = io.open(input_file, "r", encoding="utf8").read()
+    except:
+        print ("No CC-CEDICT file was found on this "
+              "location (\"%s\").") % input_file
+        quit()
+if args.download:
+        cedictfile = input_file
+
 # Run conversions.
-print "Converting..."
+print "Reading and analysing the dictionary..."
 converteddict = dictconvert(cedictfile)
+print "Converting to XDXF format..."
 xdxfdic = createxdxf(converteddict)
 # Save the resulting XDXF file.
 xdxf_result = ET.tostring(xdxfdic, encoding="utf-8", pretty_print=True,
@@ -382,6 +425,9 @@ xdxf_result = ET.tostring(xdxfdic, encoding="utf-8", pretty_print=True,
                          doctype=doctypestring).decode("utf-8")
 xdxf_result = multi_replace(xdxf_result, [("_lb_", "<br />"), ("_lt_", "<"),
                            ("_mt_", ">")])
-xdxf_filename = "CC-CEDICT_" + dictionary_version + ".xdxf"
-io.open(xdxf_filename, "w", encoding="utf8").write(xdxf_result)
-print "\nSuccess! The CC-CEDICT_ file was converted to \"%s\"." % xdxf_filename
+if args.output_file:
+    output_file = args.output_file
+else:
+    output_file = "CC-CEDICT_" + dictionary_version + ".xdxf"
+io.open(output_file, "w", encoding="utf8").write(xdxf_result)
+print "\nSuccess! The CC-CEDICT_ file was converted to \"%s\"." % output_file
