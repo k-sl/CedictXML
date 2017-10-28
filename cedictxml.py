@@ -7,7 +7,6 @@ import time
 import argparse
 import zipfile
 import urllib2
-import zipfile
 import tempfile
 from tqdm import tqdm
 
@@ -15,7 +14,7 @@ from lxml import etree as ET
 from pinyin import pinyinize
 
 
-version = "1.1"
+version = "1.2"
 dictionaryname = "CC-CEDICT"
 currenttime = time.strftime("%d-%m-%Y %H:%M:%S", time.localtime())
 dtd_url = "https://raw.github.com/soshial/xdxf_makedict/master/format_standard/xdxf_strict.dtd"
@@ -178,6 +177,8 @@ def dictconvert(dictionaryfile):
                                         ("Taiwan pr. [" + entry_taiwan +
                                         "]", ""))
                     entry_taiwan = pyjoin(entry_taiwan)
+                # Correct three dots to ellipsis.
+                entry_translation = entry_translation.replace(u"...", u"…")
                 # Correct the pinyin and separate the different translations
                 # into a list.
                 entry_translation = bracketpy(entry_translation)
@@ -208,7 +209,7 @@ def dictconvert(dictionaryfile):
     publishing_date_xdxf = (publishing_date[8:] + "-" +
                            publishing_date[5:7] + "-" + publishing_date[:5])
     global dictionary_version
-    dictionary_version = "1." + publishing_date.replace("-","")
+    dictionary_version = publishing_date.replace("-","") + "-" + version
     return cedict_dict
 
 def createxdxf(dictionary):
@@ -255,7 +256,8 @@ def createxdxf(dictionary):
                     ("telecom.", "telecommunications", "knl"), ("trad.",
                     "traditional(ly)","stl"), ("translit.", "transliteration",
                     "aux"), ("usu.", "usually", "aux"), ("zool.", "zoology",
-                    "knl"), ("zoolog.", "zoology", "knl")]
+                    "knl"), ("zoolog.", "zoology", "knl"), ("sth", "something",
+                    "aux"), ("sb", "somebody", "aux")]
     abbrlist = []
     for tupple in abbreviations:
         abbrlist.append(tupple[0])
@@ -329,7 +331,7 @@ def createxdxf(dictionary):
             lexicon_ar_def_def = ET.SubElement(lexicon_ar_def, "def")
             # Recognize the abbreviations.
             for abbreviation in abbrlist:
-                abbreviation_re = r"\b(" + re.escape(abbreviation) + r")\W"
+                abbreviation_re = r"\b(" + re.escape(abbreviation) + r")\W|\b(" + re.escape(abbreviation) + r")$"
                 if len(re.findall(abbreviation_re,translation)) > 0:
                     translation = (translation.
                                   replace(abbreviation, "_lt_abbr_mt_" +

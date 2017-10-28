@@ -4,9 +4,9 @@
 CedictXML is simple tool written in Python to convert an original [CC-CEDICT](https://www.mdbg.net/chindict/chindict.php?page=cc-cedict) file to a XML dictionary file in the logical [XDXF format](https://github.com/soshial/xdxf_makedict/blob/master/format_standard/xdxf_description.md), which can be used with dictionary software that support this format.
 
 ## Screenshot
-![Screenshot of XDXF CC-CEDICT running on GoldenDict 1.5](https://github.com/k-sl/CedictXML/blob/master/images/screenshot.png)
+![Screenshot of XDXF CC-CEDICT openned on GoldenDict 1.5](https://github.com/k-sl/CedictXML/blob/master/images/screenshot.png)
 
-Screenshot of XDXF CC-CEDICT running on [GoldenDict](https://github.com/goldendict/goldendict) 1.5
+Screenshot of XDXF CC-CEDICT openned on [GoldenDict](https://github.com/goldendict/goldendict) 1.5
 
 ## Dependencies
 * _pinyin.py_ from the [pycedict](https://github.com/jdillworth/pycedict/) library
