@@ -48,7 +48,7 @@ See [TODO](https://github.com/k-sl/CedictXML/blob/master/TODO.md)
 See [CHANGELOG](https://github.com/k-sl/CedictXML/blob/master/CHANGELOG.md)
 
 ## Dictionary Files
-A recent CC-CEDICT dictionary in XDXF format can be found [here](https://github.com/k-sl/CedictXML/tree/master/CC-CEDICT.xdxf/).
+A recent CC-CEDICT dictionary in XDXF format can be found [here](https://github.com/k-sl/CedictXML/tree/master/XDXF%20CC-CEDICT).
 
 ## Limitations
 The XDXF format doesn't recognize transcriptions (such as pinyin). The pinyin transcription will be displayed on every entry, as pronunciation, but the entries are not searchable by pinyin. Hopefully this will be implemented in a future version of XDXF.
