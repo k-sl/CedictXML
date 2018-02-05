@@ -1,12 +1,12 @@
 # CedictXML
 
 ## Description
-CedictXML is simple tool written in Python to convert an original [CC-CEDICT](https://www.mdbg.net/chindict/chindict.php?page=cc-cedict) file to a XML dictionary file in the logical [XDXF format](https://github.com/soshial/xdxf_makedict/blob/master/format_standard/xdxf_description.md), which can be used with dictionary software that support this format.
+CedictXML is a simple tool written in Python to convert an original [CC-CEDICT](https://www.mdbg.net/chindict/chindict.php?page=cc-cedict) file to a XML dictionary file in the logical [XDXF format](https://github.com/soshial/xdxf_makedict/blob/master/format_standard/xdxf_description.md), which can be used with dictionary software that support this format.
 
 ## Screenshot
-![Screenshot of XDXF CC-CEDICT openned on GoldenDict 1.5](https://github.com/k-sl/CedictXML/blob/master/images/screenshot.png)
+![Screenshot of XDXF CC-CEDICT open on GoldenDict 1.5](https://github.com/k-sl/CedictXML/blob/master/images/screenshot.png)
 
-Screenshot of XDXF CC-CEDICT openned on [GoldenDict](https://github.com/goldendict/goldendict) 1.5
+Screenshot of XDXF CC-CEDICT open on [GoldenDict](https://github.com/goldendict/goldendict) 1.5
 
 ## Dependencies
 * _pinyin.py_ from the [pycedict](https://github.com/jdillworth/pycedict/) library
@@ -15,7 +15,7 @@ Screenshot of XDXF CC-CEDICT openned on [GoldenDict](https://github.com/goldendi
     * [tdqm](https://github.com/noamraph/tqdm)
 
 ## Usage
-(Assuming Python 2.7 and all dependencies are installed and cedictxml.py and pinyin.py are in the same folder:) Run the script on a folder with a CC-CEDICT file (named "cedict_ts.u8") to convert it into an XDXF file with the default filename on the same folder. Optionally use one or several of the arguments below.
+(Assuming Python 3 and all dependencies are installed and cedictxml.py and pinyin.py are in the same folder:) Run the script on a folder with a CC-CEDICT file (named “cedict_ts.u8”) to convert it into an XDXF file with the default filename on the same folder. Optionally use one or several of the arguments below.
 
 ### Arguments
 * `-i` or `--input-file`
@@ -25,7 +25,7 @@ python cedictxml.py -i NameOfCCedictFile.u8
 ```
 
 * `-o` or `--output-file`
-The name (and location if not on the current folder) of the resulting XDXF file. By default this will be "CC-CEDICT_" follwed by the dictionary version ("1." followed by the release date) followed by ".xdxf". E.g.:
+The name (and location if not on the current folder) of the resulting XDXF file. By default this will be "CC-CEDICT_" follwed by the dictionary version (publishing date-converter version) followed by “.xdxf”. E.g.:
 ```
 python cedictxml.py -o ~/Dictionaries/XDXFFileName.xdxf
 ```
@@ -34,11 +34,6 @@ python cedictxml.py -o ~/Dictionaries/XDXFFileName.xdxf
 Automatically download the most recent release of CC-CEDICT and convert it into XDXF. Naturally this argument cannot be used with `-i`. E.g.:
 ```
 python cedictxml.py -d
-```
-
-The conversion can also be run without any argument to convert a *cedict_ts.u8* into a XDXF file with the default name. E.g.:
-```
-python cedictxml.py
 ```
 
 ## To Do

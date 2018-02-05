@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import io
 import re
 import time
 import argparse
 import zipfile
-import urllib2
+import urllib.request
 import tempfile
 from tqdm import tqdm
 
@@ -14,12 +13,13 @@ from lxml import etree as ET
 from pinyin import pinyinize
 
 
-version = "1.2"
+version = "1.3"
 dictionaryname = "CC-CEDICT"
 currenttime = time.strftime("%d-%m-%Y %H:%M:%S", time.localtime())
 dtd_url = "https://raw.github.com/soshial/xdxf_makedict/master/format_standard/xdxf_strict.dtd"
 doctypestring = "<!DOCTYPE xdxf SYSTEM \'%s\'>" % dtd_url
-declaration = ("CedictXML: CC-CEDICT to XDXF Converter\nVersion %s\n" % version)
+declaration = ("CedictXML: CC-CEDICT to XDXF Converter\nVersion %s\n"
+               % version)
 header = ""
 src_url = "http://www.mdbg.net/chindict/chindict.php?page=cc-cedict"
 file_url = "https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.zip"
@@ -29,14 +29,21 @@ cedict_dict = dict()    # Final dictionary object
 
 
 def download_cedict():
+    """Download the most recent CC-CEDICT file.
+
+    Download the most recent CC-CEDCT file in a zipped archive to the temp
+    folder, unzip it and return the text file as a string.
+    """
     tempzip = tempfile.TemporaryFile()
-    url = urllib2.urlopen(file_url)
+    url = urllib.request.urlopen(file_url)
     tempzip.write(url.read())
     zipped_cedict = zipfile.ZipFile(tempzip, 'r')
     temptxt = tempfile.TemporaryFile()
-    temptxt = zipped_cedict.open("cedict_ts.u8", "rU").read()
+    temptxt = zipped_cedict.open("cedict_ts.u8").read()
     zipped_cedict.close()
     return temptxt.decode('utf8')
+
+
 def pyjoin(pinyinsyllables):
     """Convert CEDICT-style pinyin notation to correct pinyin.
 
@@ -46,8 +53,8 @@ def pyjoin(pinyinsyllables):
     pinyin.info.)
     """
     # Tuple of letters after which an apostrophe is needed:
-    apletters = (u"ā", u"á", u"ǎ", u"à", u"a", u"ē", u"é", u"ě", u"è", u"e",
-                 u"ō", u"ó", u"ǒ", u"ò", u"o")
+    apletters = ("ā", "á", "ǎ", "à", "a", "ē", "é", "ě", "è", "e",
+                 "ō", "ó", "ǒ", "ò", "o")
     # "r5" is a mistake, 儿 when transcribed as "r" is not a syllable,
     # it cannot have a tone.
     pinyinsyllables = pinyinsyllables.replace("r5", "r")
@@ -56,26 +63,28 @@ def pyjoin(pinyinsyllables):
     syllablelist = pinyinsyllables.split()
     if len(syllablelist) > 1:
         relevantsyl = syllablelist[1:]
-        for i in xrange(len(relevantsyl)):
+        for i in range(len(relevantsyl)):
             if relevantsyl[i].startswith(apletters):
-                relevantsyl[i] = u"'" + relevantsyl[i]
+                relevantsyl[i] = "'" + relevantsyl[i]
         finallist = syllablelist[:1] + relevantsyl[:]
         finalword = "".join(finallist)
     else:
         finalword = "".join(syllablelist)
     # In case the pinyin syllable belongs to a foreign name and is
     # preceded by "·", the apostrophe is not needed (and simply wrong).
-    finalword = finalword.replace(u"·'",u"·")
+    finalword = finalword.replace("·'", "·")
     # In case there is a capital letter in middle of a word there
     # should be a space before it. (It's likely a several-word place
     # name.)
-    if u"·" not in finalword:
-        needsspace = re.findall(u".+?([A-Z]|Ā|Á|Ǎ|À|Ē|É|Ě|È|Ī|Í|Ǐ|Ì|Ō|Ó|Ǒ|Ò|Ū"
-                                u"|Ú|Ǔ|Ù).+?", finalword)
+    if "·" not in finalword:
+        needsspace = re.findall(".+?([A-Z]|Ā|Á|Ǎ|À|Ē|É|Ě|È|Ī|Í|Ǐ|Ì|Ō|Ó|Ǒ|Ò|Ū"
+                                "|Ú|Ǔ|Ù).+?", finalword)
         if needsspace is not []:
             for item in needsspace:
                 finalword = finalword.replace(item, " " + item)
     return finalword
+
+
 def bracketpy(pystring):
     """Find CEDICT-style pinyin in square brackets and correct pinyin.
 
@@ -94,6 +103,8 @@ def bracketpy(pystring):
         return pystring
     else:
         return None
+
+
 def dictconvert(dictionaryfile):
     """Convert a CC-CEDICT file string into a python dictionary.
 
@@ -129,7 +140,7 @@ def dictconvert(dictionaryfile):
     """
     linenum = int(0)
     header = str()
-    for line in tqdm(dictionaryfile.split("\n")):
+    for line in tqdm(dictionaryfile.split("\n"), unit=" entries"):
         linenum = linenum + 1
         # So that if something goes wrong we know which line is causing the
         # problem:
@@ -148,37 +159,37 @@ def dictconvert(dictionaryfile):
                     entry_measureword = ""
                 if len(re.findall("CL:(.+?])\/", entry_translation)) > 0:
                     cl_list = entry_measureword = re.findall("CL:(.+?])\/",
-                                                            entry_translation)
+                                                             entry_translation)
                     entry_measureword = cl_list[0]
                     if len(cl_list) > 1:
                         for cl in cl_list[1:]:
                             entry_measureword = entry_measureword + " " + cl
                     for cl in cl_list:
                         entry_translation = entry_translation.replace("CL:"
-                                                                     + cl, "")
+                                                                      + cl, "")
                     # Correct pinyin in measure words and convert into list.
                     entry_measureword = bracketpy(entry_measureword)
                     entry_measureword = entry_measureword.split(",")
                 # Get Taiwan pronunciation and delete it from the translation.
                 if len(re.findall("Taiwan pr\. \[(.+?)\]",
-                      entry_translation)) == 0:
+                       entry_translation)) == 0:
                     entry_taiwan = ""
                 if len(re.findall("Taiwan pr\. \[(.+?)\]",
-                      entry_translation)) > 1:
-                    print ("\nAn error occurred while parsing the Taiwan "
+                       entry_translation)) > 1:
+                    print("\nAn error occurred while parsing the Taiwan "
                           "pronunciation for line %s. This line was "
                           "ignored." % str(linenum))
-                    print "    Line", str(linenum) + ":", line
+                    print("    Line", str(linenum) + ":", line)
                 if len(re.findall("Taiwan pr\. \[(.+?)\]",
-                      entry_translation)) == 1:
+                       entry_translation)) == 1:
                     entry_taiwan = (re.findall("Taiwan pr\. \[(.+?)\]",
-                                   entry_translation)[0])
+                                    entry_translation)[0])
                     entry_translation = (entry_translation.replace
-                                        ("Taiwan pr. [" + entry_taiwan +
-                                        "]", ""))
+                                         ("Taiwan pr. [" + entry_taiwan +
+                                          "]", ""))
                     entry_taiwan = pyjoin(entry_taiwan)
                 # Correct three dots to ellipsis.
-                entry_translation = entry_translation.replace(u"...", u"…")
+                entry_translation = entry_translation.replace("...", "…")
                 # Correct the pinyin and separate the different translations
                 # into a list.
                 entry_translation = bracketpy(entry_translation)
@@ -186,20 +197,20 @@ def dictconvert(dictionaryfile):
                 entry_translation = filter(None, entry_translation)
                 # Create final dictinary object with all basic entries.
                 cedict_dict[linenum] = ({"entry_jian": entry_jian,
-                                      "entry_fan" : entry_fan,
-                                      "entry_pinyin" : entry_pinyin,
-                                      "entry_translation" :
-                                      entry_translation})
+                                         "entry_fan": entry_fan,
+                                         "entry_pinyin": entry_pinyin,
+                                         "entry_translation":
+                                         entry_translation})
                 # Add Taiwan pronunciation and measure word when they exist.
                 if entry_taiwan is not "":
                     cedict_dict[linenum]["entry_taiwan"] = entry_taiwan
                 if entry_measureword is not "":
                     (cedict_dict[linenum]
-                    ["entry_measureword"]) = entry_measureword
+                     ["entry_measureword"]) = entry_measureword
         except:
-            print ("Line %s was not understood and was ignored."
+            print("Line %s was not understood and was ignored."
                   % linenum)
-            print "Line", str(linenum) + ":", line
+            print("Line", str(linenum) + ":", line)
             continue
     cedict_dict["header"] = header
     date_pos = header.find("date=")
@@ -207,10 +218,11 @@ def dictconvert(dictionaryfile):
     publishing_date = header[date_pos+5:date_pos+15]
     global publishing_date_xdxf
     publishing_date_xdxf = (publishing_date[8:] + "-" +
-                           publishing_date[5:7] + "-" + publishing_date[:5])
+                            publishing_date[5:7] + "-" + publishing_date[:5])
     global dictionary_version
-    dictionary_version = publishing_date.replace("-","") + "-" + version
+    dictionary_version = publishing_date.replace("-", "") + "-" + version
     return cedict_dict
+
 
 def createxdxf(dictionary):
     """Convert the dictionary object into a valid XDXF-format string.
@@ -222,154 +234,157 @@ def createxdxf(dictionary):
     """
     # List of abbreviations in the dictionary:
     abbreviations = [("Budd.", "Buddhism", "knl"), ("Cant.", "Cantonese",
-                    "oth"), ("cf", "confer, ‘compare’", "aux"), ("Dept.",
-                    "Department", ""), ("P.R.C.", "People's Republic of China",
-                    ""), ("TCM", "Traditional Chinese Medicine", "knl"), ("Tw",
-                    "Taiwan", ""), ("U.S.", "United States of America", ""),
-                    ("Univ.", "University", ""), ("a.k.a.", "also known as",
-                    "aux"), ("abbr.", "abbreviation", "aux"), ("adj.",
-                    "adjective", ""), ("agr.", "agriculture", "knl"), ("arch.",
-                    "archaic", "stl"), ("astron.", "astronomy", "knl"),
-                    ("auto.", "automobile", ""), ("biol.", "biology", "knl"),
-                    ("c.", "circa", "aux"), ("cm.", "centimetre", ""),
-                    ("coll.", "colloquial", "stl"), ("derog.", "derogatory",
-                    "stl"), ("dial.", "dialect", "stl"), ("e.g.",
-                    "exempli gratia, ‘for example’", "aux"), ("elec.",
-                    "electricity", "knl"), ("electric.", "electricity",
-                    "knl"), ("esp.", "especially", "aux"), ("euph.",
-                    "euphemism", "stl"), ("expr.", "expression", "aux"),
-                    ("ext.", "extension", "aux"), ("fig.", "figuratively",
-                    "aux"), ("geom.", "geometry", "knl"), ("gov.",
-                    "government", ""), ("hist.", "history", "knl"), ("i.e.",
-                    "id est, ‘that is’", "aux"), ("in.", "inches", ""),
-                    ("incl.", "including", "aux"), ("interj.", "interjection",
-                    "grm"), ("lab.", "laboratory", ""), ("ling.",
-                    "linguistic", "knl"), ("lit.", "literally", "aux"),
-                    ("math.", "mathematics", "knl"), ("med.", "medicine",
-                    "knl"), ("mus. instr.", "musical instrument", ""),
-                    ("myth.", "mythology", "knl"), ("onom.", "onomatopoeia",
-                    "grm"), ("onomat.", "onomatopoeia", "grm"), ("orig.",
-                    "originally", ""), ("pathol.", "pathology", "knl"),
-                    ("pharm.", "pharmacology", "knl"), ("pr.", "pronunciation",
-                    "aux"), ("psych.", "psychology", "knl"), ("punct.",
-                    "punctuation", "knl"), ("stats.", "statistics", "knl"),
-                    ("telecom.", "telecommunications", "knl"), ("trad.",
-                    "traditional(ly)","stl"), ("translit.", "transliteration",
-                    "aux"), ("usu.", "usually", "aux"), ("zool.", "zoology",
-                    "knl"), ("zoolog.", "zoology", "knl"), ("sth", "something",
-                    "aux"), ("sb", "somebody", "aux")]
+                     "oth"), ("cf", "confer, ‘compare’", "aux"), ("Dept.",
+                     "Department", ""), ("P.R.C.",
+                     "People's Republic of China", ""), ("TCM",
+                     "Traditional Chinese Medicine", "knl"), ("Tw", "Taiwan",
+                     ""), ("U.S.", "United States of America", ""), ("Univ.",
+                     "University", ""), ("a.k.a.", "also known as", "aux"),
+                     ("abbr.", "abbreviation", "aux"), ("adj.", "adjective",
+                     ""), ("agr.", "agriculture", "knl"), ("arch.", "archaic",
+                     "stl"), ("astron.", "astronomy", "knl"), ("auto.",
+                     "automobile", ""), ("biol.", "biology", "knl"), ("c.",
+                     "circa", "aux"), ("cm.", "centimetre", ""), ("coll.",
+                     "colloquial", "stl"), ("derog.", "derogatory", "stl"),
+                     ("dial.", "dialect", "stl"), ("e.g.",
+                     "exempli gratia, ‘for example’", "aux"), ("elec.",
+                     "electricity", "knl"), ("electric.", "electricity",
+                     "knl"), ("esp.", "especially", "aux"), ("euph.",
+                     "euphemism", "stl"), ("expr.", "expression", "aux"),
+                     ("ext.", "extension", "aux"), ("fig.", "figuratively",
+                     "aux"), ("geom.", "geometry", "knl"), ("gov.",
+                     "government", ""), ("hist.", "history", "knl"), ("i.e.",
+                     "id est, ‘that is’", "aux"), ("in.", "inches", ""),
+                     ("incl.", "including", "aux"), ("interj.", "interjection",
+                     "grm"), ("lab.", "laboratory", ""), ("ling.",
+                     "linguistic", "knl"), ("lit.", "literally", "aux"),
+                     ("math.", "mathematics", "knl"), ("med.", "medicine",
+                     "knl"), ("mus. instr.", "musical instrument", ""),
+                     ("myth.", "mythology", "knl"), ("onom.", "onomatopoeia",
+                     "grm"), ("onomat.", "onomatopoeia", "grm"), ("orig.",
+                     "originally", ""), ("pathol.", "pathology", "knl"),
+                     ("pharm.", "pharmacology", "knl"), ("pr.",
+                     "pronunciation", "aux"), ("psych.", "psychology", "knl"),
+                     ("punct.", "punctuation", "knl"), ("stats.", "statistics",
+                     "knl"), ("telecom.", "telecommunications", "knl"),
+                     ("trad.", "traditional(ly)", "stl"), ("translit.",
+                     "transliteration", "aux"), ("usu.", "usually", "aux"),
+                     ("zool.", "zoology", "knl"), ("zoolog.", "zoology",
+                     "knl"), ("sth", "something", "aux"), ("sb", "somebody",
+                     "aux")]
     abbrlist = []
     for tupple in abbreviations:
         abbrlist.append(tupple[0])
     # Get the description from the original header and add information about
     # the conversion.
     conversion_info = ("_lb_This XDXF file was created automatically by the "
-                      "CedictXML converter, version %s on %s._lb_CedictXML "
-                      "is free and unencumbered software released into the "
-                      "public domain." % (version, currenttime))
-    description = dictionary["header"].replace("\n","_lb_") + conversion_info
+                       "CedictXML converter, version %s on %s._lb_CedictXML "
+                       "is free and unencumbered software released into the "
+                       "public domain." % (version, currenttime))
+    description = dictionary["header"].replace("\n", "_lb_") + conversion_info
     xdxfdic_top = ET.Element("xdxf", lang_from="CHI", lang_to="ENG",
-                            format="logical", revision="33")
+                             format="logical", revision="33")
     # Header is no longer needed, only dictionary entries should be left.
     del dictionary["header"]
     meta_info = ET.SubElement(xdxfdic_top, "meta_info")
     lexicon = ET.SubElement(xdxfdic_top, "lexicon")
     meta_info_title = ET.SubElement(meta_info, "title").text = dictionaryname
     meta_info_full_title = ET.SubElement(meta_info,
-                                        "full_title").text = dictionaryname
+                                         "full_title").text = dictionaryname
     meta_info_publisher = ET.SubElement(meta_info, "publisher").text = "MDBG"
     meta_info_description = ET.SubElement(meta_info,
-                                         "description").text = description
+                                          "description").text = description
     meta_info_abbreviations = ET.SubElement(meta_info, "abbreviations")
     for abbreviation in abbreviations:
         if abbreviation[2] is not "":
             current_abbr_def = ET.SubElement(meta_info_abbreviations,
-                                            "abbr_def", type=abbreviation[2])
+                                             "abbr_def", type=abbreviation[2])
             abbr_k = ET.SubElement(current_abbr_def,
-                                  "abbr_k").text = abbreviation[0]
+                                   "abbr_k").text = abbreviation[0]
             abbr_v = ET.SubElement(current_abbr_def,
-                                  "abbr_v").text = (abbreviation[1].
-                                                   decode("utf-8"))
+                                   "abbr_v").text = (abbreviation[1])
         else:
             current_abbr_def = ET.SubElement(meta_info_abbreviations,
-                                            "abbr_def")
+                                             "abbr_def")
             abbr_k = ET.SubElement(current_abbr_def,
-                                  "abbr_k").text = abbreviation[0]
+                                   "abbr_k").text = abbreviation[0]
             abbr_v = ET.SubElement(current_abbr_def,
-                                  "abbr_v").text = abbreviation[1]
+                                   "abbr_v").text = abbreviation[1]
     meta_info_file_ver = ET.SubElement(meta_info,
-                                      "file_ver").text = (dictionary_version +
-                                                         "-" + version)
+                                       "file_ver").text = dictionary_version
     meta_info_creation_date = ET.SubElement(meta_info,
-                                           "creation_date").text = (currenttime
-                                                                   [:10])
+                                            "creation_date").text = (currenttime[:10])
     meta_info_publishing_date = (ET.SubElement
-                                (meta_info,"publishing_date").text) = (publishing_date_xdxf)
+                                 (meta_info, "publishing_date").text) = (publishing_date_xdxf)
     meta_info_dict_src_url = ET.SubElement(meta_info,
-                                          "dict_src_url").text = src_url
-    for key,value in tqdm(dictionary.items()):
+                                           "dict_src_url").text = src_url
+    for key, value in tqdm(dictionary.items(), unit=" entries"):
         lexicon_ar = ET.SubElement(lexicon, "ar")
         lexicon_ar_k = ET.SubElement(lexicon_ar, "k").text = value["entry_jian"]
         lexicon_ar_k_trad = ET.SubElement(lexicon_ar,
-                                         "k").text = value["entry_fan"]
+                                          "k").text = value["entry_fan"]
         lexicon_ar_def = ET.SubElement(lexicon_ar, "def")
         lexicon_ar_def_grtr = ET.SubElement(lexicon_ar_def, "gr")
         lexicon_ar_def_grtr_tr = ET.SubElement(lexicon_ar_def_grtr,
-                                              "tr").text = value["entry_pinyin"]
+                                               "tr").text = value["entry_pinyin"]
         if value.get("entry_taiwan") is not None:
             lexicon_ar_def_grtr_gr_tw = ET.SubElement(lexicon_ar_def, "gr")
             lexicon_ar_def_grtr_tr_tw = ET.SubElement(lexicon_ar_def_grtr_gr_tw,
-                                                     "tr").text = value["entry_taiwan"]
+                                                      "tr").text = value["entry_taiwan"]
         if value.get("entry_measureword") is not None:
             # Reassemble the measure words into a string.
             measurewords = "Measure words:"
             for item in value["entry_measureword"]:
                 measurewords = measurewords + " " + item
             lexicon_ar_def_mw = ET.SubElement(lexicon_ar_def,
-                                             "gr").text = measurewords
+                                              "gr").text = measurewords
         for translation in value["entry_translation"]:
             lexicon_ar_def_def = ET.SubElement(lexicon_ar_def, "def")
             # Recognize the abbreviations.
             for abbreviation in abbrlist:
                 abbreviation_re = r"\b(" + re.escape(abbreviation) + r")\W|\b(" + re.escape(abbreviation) + r")$"
-                if len(re.findall(abbreviation_re,translation)) > 0:
+                if len(re.findall(abbreviation_re, translation)) > 0:
                     translation = (translation.
-                                  replace(abbreviation, "_lt_abbr_mt_" +
-                                  abbreviation + "_lt_/abbr_mt_"))
+                                   replace(abbreviation, "_lt_abbr_mt_" +
+                                           abbreviation + "_lt_/abbr_mt_"))
             # Recognize intra-dictionary references.
             if re.findall("[Ss]ee ([^\x00-\x7F]+?)[\| \)\.]",
-                         translation) is not []:
+                          translation) is not []:
                 for item in re.findall("[Ss]ee ([^\x00-\x7F]+?)[\| \)\.]",
-                                      translation):
+                                       translation):
                     translation = translation.replace(item,
-                                                     "_lt_kref_mt_" + item +
-                                                     "_lt_/kref_mt_")
+                                                      "_lt_kref_mt_" + item +
+                                                      "_lt_/kref_mt_")
             if re.findall("[Ss]ee also ([^\x00-\x7F]+?)[\| \)\.]",
-                         translation) is not []:
+                          translation) is not []:
                 for item in re.findall("[Ss]ee also ([^\x00-\x7F]+?)[\| \)\.]",
-                                      translation):
+                                       translation):
                     translation = (translation.
-                                  replace(item, "_lt_kref_mt_" + item +
-                                  "_lt_/kref_mt_"))
+                                   replace(item, "_lt_kref_mt_" + item +
+                                           "_lt_/kref_mt_"))
             if re.findall("[Vv]ariant of ([^\x00-\x7F]+?)[\| \)\.]",
-                         translation) is not []:
+                          translation) is not []:
                 for item in re.findall("[Vv]ariant of ([^\x00-\x7F]+?)[\| \)\.]",
-                                      translation):
+                                       translation):
                     translation = translation.replace(item, "_lt_kref_mt_" +
-                                                     item + "_lt_/kref_mt_")
+                                                      item + "_lt_/kref_mt_")
             # Recognize external links. Protocol is assumed to be HTTP.
             if "Planck's constant" not in translation:
                 if len(re.findall(r"\b([a-zA-Z]{2,}?\.[a-zA-Z0-9][a-zA-Z0-9._]"
-                                 "{2,})\b", translation)) > 0:
+                                  "{2,})\b", translation)) > 0:
                     for item in re.findall(r"\b([a-zA-Z]{2,}?\.[a-zA-Z0-9]"
-                                          "[a-zA-Z0-9._]{2,})\b", translation):
+                                           "[a-zA-Z0-9._]{2,})\b",
+                                           translation):
                         translation = (translation.
-                                      replace(item, "_lt_iref href=\"http://" +
-                                      item + "\"_mt_" + item + "_lt_/iref_mt_"))
+                                       replace(item, "_lt_iref href=\"http://"
+                                               + item + "\"_mt_" + item +
+                                               "_lt_/iref_mt_"))
             lexicon_ar_def_def_deftext = (ET.SubElement
-                                         (lexicon_ar_def_def,
-                                         "deftext").text) = translation
+                                          (lexicon_ar_def_def,
+                                           "deftext").text) = translation
     return xdxfdic_top
+
+
 def multi_replace(inputstring, replacements):
     """Apply the replace method multiple times.
 
@@ -381,55 +396,56 @@ def multi_replace(inputstring, replacements):
         inputstring = inputstring.replace(replacement[0], replacement[1])
     return inputstring
 
+
 # Set and parse arguments.
 argparser = argparse.ArgumentParser()
-argparser.add_argument("-i", "--input-file", help="Original CC-CEDICT file to "
-                                                  "be converted.")
+argparser.add_argument("-i", "--input-file", help="Original CC-CEDICT file to"
+                                                  " be converted.")
 argparser.add_argument("-o", "--output-file", help="Resulting XDXF-format "
                                                    "file.")
 argparser.add_argument("-d", "--download", help="Download the most recent "
-                                                "release of CC-CEDICT and use "
-                                                "it as input file.",
+                                                "release of CC-CEDICT and use"
+                                                " it as input file.",
                                                 action="store_true")
 args = argparser.parse_args()
 
-print declaration
+print(declaration)
 
 if args.input_file and args.download:
-    print ("It's not possible to select an input file and to download the most "
+    print("It's not possible to select an input file and to download the most "
           "recent version.")
     exit()
 if args.input_file:
     input_file = args.input_file
 elif args.download:
-    print "\nDownloading the most recent release of CC-CEDICT..."
+    print("\nDownloading the most recent release of CC-CEDICT…")
     input_file = download_cedict()
 else:
     input_file = "cedict_ts.u8"
 if args.input_file or not (args.download or args.input_file):
     try:
-        cedictfile = io.open(input_file, "r", encoding="utf8").read()
+        cedictfile = open(input_file, "r", encoding="utf-8").read()
     except:
-        print ("No CC-CEDICT file was found on this "
+        print("No CC-CEDICT file was found on this "
               "location (\"%s\").") % input_file
         quit()
 if args.download:
         cedictfile = input_file
 
 # Run conversions.
-print "Reading and analysing the dictionary..."
+print("Reading and analysing the dictionary…")
 converteddict = dictconvert(cedictfile)
-print "Converting to XDXF format..."
+print("Converting to XDXF format…")
 xdxfdic = createxdxf(converteddict)
 # Save the resulting XDXF file.
 xdxf_result = ET.tostring(xdxfdic, encoding="utf-8", pretty_print=True,
-                         xml_declaration=True,
-                         doctype=doctypestring).decode("utf-8")
-xdxf_result = multi_replace(xdxf_result, [("_lb_", "<br />"), ("_lt_", "<"),
-                           ("_mt_", ">")])
+                          xml_declaration=True,
+                          doctype=doctypestring).decode("utf-8")
+xdxf_result = multi_replace(xdxf_result, [("_lb_", "<br/>"), ("_lt_", "<"),
+                            ("_mt_", ">")])
 if args.output_file:
     output_file = args.output_file
 else:
     output_file = "CC-CEDICT_" + dictionary_version + ".xdxf"
-io.open(output_file, "w", encoding="utf8").write(xdxf_result)
-print "\nSuccess! The CC-CEDICT_ file was converted to \"%s\"." % output_file
+open(output_file, "w", encoding="utf8").write(xdxf_result)
+print("\nSuccess! The CC-CEDICT file was converted to \"%s\"." % output_file)
